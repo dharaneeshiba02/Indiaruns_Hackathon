@@ -7,15 +7,13 @@ from pathlib import Path
 from typing import Any
 
 import pandas as pd
-from fastapi import FastAPI, File, HTTPException, UploadFile, Request
+from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, HTMLResponse
-from pydantic import BaseModel
 
 from config import get_settings
 from app.models.schemas import RankingResponse
 from app.services.pipeline import RankingPipeline
-from app.services.gemini_client import GeminiRecruiterClient
 
 
 settings = get_settings()
@@ -40,12 +38,7 @@ app.add_middleware(
 _state: dict[str, Any] = {
     "job_path": None,
     "candidates_paths": [],
-    "job": None,
-    "results": None,
 }
-
-class ChatRequest(BaseModel):
-    question: str
 
 
 @app.get("/health")
@@ -308,88 +301,6 @@ def ui() -> str:
             font-size: 15px;
           }
 
-          /* Chatbot UI */
-          .chat-panel {
-            background: var(--glass-bg);
-            backdrop-filter: blur(12px);
-            border: 1px solid var(--glass-border);
-            border-radius: 16px;
-            padding: 0;
-            box-shadow: var(--glass-shadow);
-            display: none; /* Hidden until results exist */
-            flex-direction: column;
-            height: 500px;
-            overflow: hidden;
-          }
-          .chat-panel.active { display: flex; }
-          
-          .chat-header {
-            padding: 16px 24px;
-            border-bottom: 1px solid var(--border-color);
-            background: rgba(255, 255, 255, 0.02);
-            font-weight: 600;
-            color: #fff;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-          }
-          .chat-messages {
-            flex: 1;
-            padding: 24px;
-            overflow-y: auto;
-            display: flex;
-            flex-direction: column;
-            gap: 16px;
-          }
-          .msg {
-            max-width: 85%;
-            padding: 12px 16px;
-            border-radius: 12px;
-            font-size: 14px;
-            line-height: 1.5;
-            white-space: pre-wrap;
-          }
-          .msg.bot {
-            background: rgba(255, 255, 255, 0.05);
-            border: 1px solid var(--border-color);
-            align-self: flex-start;
-            border-bottom-left-radius: 4px;
-          }
-          .msg.user {
-            background: var(--accent);
-            color: #fff;
-            align-self: flex-end;
-            border-bottom-right-radius: 4px;
-          }
-          .chat-input-area {
-            padding: 16px 24px;
-            border-top: 1px solid var(--border-color);
-            background: rgba(0, 0, 0, 0.2);
-            display: flex;
-            gap: 12px;
-          }
-          .chat-input {
-            flex: 1;
-            background: rgba(255, 255, 255, 0.05);
-            border: 1px solid var(--border-color);
-            border-radius: 8px;
-            padding: 10px 16px;
-            color: #fff;
-            font-family: inherit;
-            font-size: 14px;
-            transition: border-color 0.2s;
-          }
-          .chat-input:focus { outline: none; border-color: var(--accent); }
-          .btn-send {
-            background: var(--accent);
-            color: #fff;
-            border: none;
-            border-radius: 8px;
-            padding: 0 20px;
-            font-weight: 600;
-            cursor: pointer;
-          }
-          .btn-send:hover { background: #4096ed; }
         </style>
       </head>
       <body>
@@ -480,21 +391,6 @@ def ui() -> str:
               </div>
             </div>
           </div>
-          
-          <!-- Chat Panel -->
-          <div class="chat-panel" id="chatPanel">
-            <div class="chat-header">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
-              Recruiter AI Assistant
-            </div>
-            <div class="chat-messages" id="chatMessages">
-              <div class="msg bot">Hello! I've analyzed the ranking results. Feel free to ask me any questions about the candidates, scores, or why someone was ranked highly.</div>
-            </div>
-            <div class="chat-input-area">
-              <input type="text" class="chat-input" id="chatInput" placeholder="Ask about the results..." onkeypress="handleChatKey(event)">
-              <button class="btn-send" onclick="sendChat()">Send</button>
-            </div>
-          </div>
         </main>
 
         <script>
@@ -567,9 +463,6 @@ def ui() -> str:
                 const data = await response.json();
                 renderResults(data.results);
                 updateServerStatus('Ranking complete.', 'ready');
-                
-                // Show chatbot
-                document.getElementById('chatPanel').classList.add('active');
             } catch (err) {
                 updateServerStatus(`Ranking failed: ${err.message}`, 'error');
             } finally {
@@ -623,63 +516,6 @@ def ui() -> str:
             
             html += `</tbody></table>`;
             document.getElementById('resultsContainer').innerHTML = html;
-          }
-
-          // Chatbot logic
-          function addMessage(text, sender) {
-              const chat = document.getElementById('chatMessages');
-              const msg = document.createElement('div');
-              msg.className = `msg ${sender}`;
-              msg.textContent = text;
-              chat.appendChild(msg);
-              chat.scrollTop = chat.scrollHeight;
-          }
-
-          function handleChatKey(e) {
-              if (e.key === 'Enter') sendChat();
-          }
-
-          async function sendChat() {
-              const input = document.getElementById('chatInput');
-              const text = input.value.trim();
-              if (!text) return;
-              
-              addMessage(text, 'user');
-              input.value = '';
-              input.disabled = true;
-              
-              // Add a temporary loading message
-              const chat = document.getElementById('chatMessages');
-              const loadingMsg = document.createElement('div');
-              loadingMsg.className = 'msg bot';
-              loadingMsg.id = 'loadingMsg';
-              loadingMsg.innerHTML = '<span style="opacity:0.5">Thinking...</span>';
-              chat.appendChild(loadingMsg);
-              chat.scrollTop = chat.scrollHeight;
-
-              try {
-                  const res = await fetch('/chat', {
-                      method: 'POST',
-                      headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({ question: text })
-                  });
-                  const data = await res.json();
-                  
-                  // Remove loading message
-                  document.getElementById('loadingMsg').remove();
-                  
-                  if (res.ok) {
-                      addMessage(data.answer, 'bot');
-                  } else {
-                      addMessage("Sorry, an error occurred.", 'bot');
-                  }
-              } catch (e) {
-                  document.getElementById('loadingMsg').remove();
-                  addMessage("Connection error.", 'bot');
-              } finally {
-                  input.disabled = false;
-                  input.focus();
-              }
           }
 
           // Drag and drop wiring
@@ -746,29 +582,10 @@ def rank() -> RankingResponse:
         else:
             results, output_path = ranking_output
             job = None
-        
-        # Save state for chatbot
-        _state["job"] = job
-        _state["results"] = results
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
         
     return RankingResponse(results=results, output_file=str(output_path))
-
-
-@app.post("/chat")
-def chat(req: ChatRequest) -> dict[str, str]:
-    """Ask questions about the ranking results."""
-    results = _state.get("results")
-    if not results:
-        raise HTTPException(status_code=400, detail="No ranking results available. Please rank candidates first.")
-        
-    job = _state.get("job")
-    llm = GeminiRecruiterClient(settings)
-    answer = llm.chat_about_results(req.question, results, job)
-    return {"answer": answer}
-
-
 
 @app.get("/results")
 def results():

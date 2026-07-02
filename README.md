@@ -65,7 +65,13 @@ pip install -r requirements.txt
 copy .env.example .env
 ```
 
-Add `GEMINI_API_KEY` to `.env` for LLM extraction and reranking. Without it, the project remains runnable with deterministic heuristics.
+Add your Gemini key to `.env`:
+
+```env
+GEMINI_API_KEY="enter your api"
+```
+
+Without a Gemini key, the project remains runnable with deterministic heuristics.
 
 ## Run
 
