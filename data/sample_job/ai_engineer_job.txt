@@ -1,0 +1,21 @@
+AI Engineer
+
+Responsibilities:
+- Build semantic search and ranking systems for recruiter workflows.
+- Develop FastAPI services and production-quality Python modules.
+- Work with embeddings, vector databases, LLM prompts, and evaluation metrics.
+
+Required Skills:
+Python, FastAPI, machine learning, NLP, sentence transformers, FAISS, pandas, numpy
+
+Preferred Skills:
+Docker, Git, cloud deployment, LLM applications
+
+Experience:
+3+ years
+
+Education:
+Bachelor or Master in Computer Science, Data Science, or related field
+
+Soft Skills:
+communication, collaboration, ownership, problem solving
