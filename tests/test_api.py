@@ -57,3 +57,15 @@ def test_upload_and_rank_endpoint(monkeypatch, tmp_path):
     assert candidate_response.status_code == 200
     assert rank_response.status_code == 200
     assert rank_response.json()["results"][0]["candidate_id"] == "C1"
+
+
+def test_candidate_pdf_upload_is_allowed():
+    client = TestClient(api_main.app)
+
+    response = client.post(
+        "/upload-candidates",
+        files={"file": ("resume.pdf", b"%PDF-1.4 fake", "application/pdf")},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["message"] == "candidates uploaded"

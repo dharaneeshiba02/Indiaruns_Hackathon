@@ -13,7 +13,7 @@ from app.embeddings.vector_store import VectorStore
 from app.models.schemas import CandidateProfile, CandidateScore, JobRequirements
 from app.ranking.scorer import CandidateScorer
 from app.services.candidate_service import CandidateService
-from app.services.groq_client import GroqRecruiterClient
+from app.services.gemini_client import GeminiRecruiterClient
 from app.services.job_service import JobService
 from app.utils.text import clean_text
 
@@ -29,16 +29,17 @@ class RankingPipeline:
         self.candidate_service = CandidateService()
         self.encoder = EmbeddingEncoder(settings.embedding_model_name, settings.embedding_backend)
         self.scorer = CandidateScorer(settings.score_weights)
-        self.llm = GroqRecruiterClient(settings)
+        self.llm = GeminiRecruiterClient(settings)
 
     def rank_from_files(
-        self, job_path: str | Path, candidates_path: str | Path
-    ) -> tuple[list[CandidateScore], Path]:
+        self, job_path: str | Path, candidates_path: str | Path | list[str | Path]
+    ) -> tuple[list[CandidateScore], Path, JobRequirements]:
         """Run the full pipeline from uploaded files."""
 
         job = self.job_service.load_from_file(job_path)
         candidates = self.candidate_service.load_candidates(candidates_path)
-        return self.rank(job, candidates)
+        results, output_path = self.rank(job, candidates)
+        return results, output_path, job
 
     def rank(
         self, job: JobRequirements, candidates: list[CandidateProfile]

@@ -9,7 +9,7 @@
 - Parse job descriptions and candidate profiles.
 - Use semantic embeddings and vector search.
 - Combine semantic relevance with skills, experience, education, behaviour, and activity signals.
-- Use Groq LLM reranking for recruiter-style final notes.
+- Use Gemini LLM reranking for recruiter-style final notes.
 
 ## 3. Architecture
 - FastAPI service.
@@ -35,7 +35,7 @@
 - FAISS retrieves candidates with highest cosine similarity.
 
 ## 6. LLM Flow
-- Groq extracts job requirements into JSON.
+- Gemini extracts job requirements into JSON.
 - Top 20 candidates are sent for expert recruiter reranking.
 - The final response includes reasons, strengths, and weaknesses.
 

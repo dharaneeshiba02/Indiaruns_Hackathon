@@ -27,8 +27,8 @@ class Settings:
 
     app_name: str = os.getenv("APP_NAME", "AI Candidate Ranking System")
     environment: str = os.getenv("ENVIRONMENT", "local")
-    groq_api_key: str | None = os.getenv("GROQ_API_KEY")
-    groq_model: str = os.getenv("GROQ_MODEL", "llama-3.1-70b-versatile")
+    gemini_api_key: str | None = os.getenv("GEMINI_API_KEY")
+    gemini_model: str = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
     embedding_model_name: str = os.getenv(
         "EMBEDDING_MODEL_NAME", "sentence-transformers/all-MiniLM-L6-v2"
     )

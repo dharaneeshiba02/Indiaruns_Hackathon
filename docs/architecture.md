@@ -3,13 +3,13 @@
 ```mermaid
 flowchart LR
     A[Job file: txt/pdf/docx] --> B[Text extraction]
-    B --> C[Groq or heuristic requirement extraction]
+    B --> C[Gemini or heuristic requirement extraction]
     D[Candidate CSV/JSON] --> E[Candidate normalization]
     C --> F[Sentence Transformer embeddings]
     E --> F
     F --> G[FAISS or NumPy vector search]
     G --> H[Hybrid weighted scoring]
-    H --> I[Groq top-20 reranking]
+    H --> I[Gemini top-20 reranking]
     I --> J[ranked_candidates.csv]
     I --> K[FastAPI response]
 ```
@@ -17,7 +17,7 @@ flowchart LR
 ## Modules
 
 - `app/utils`: file parsing, text cleaning, JSON helpers.
-- `app/services`: job extraction, candidate normalization, Groq adapter, orchestration pipeline.
+- `app/services`: job extraction, candidate normalization, Gemini adapter, orchestration pipeline.
 - `app/embeddings`: embedding model and vector search abstraction.
 - `app/ranking`: weighted score calculation and explainability.
 - `app/api`: FastAPI endpoints and simple demo UI.

@@ -6,7 +6,7 @@ from pathlib import Path
 
 from config import Settings
 from app.models.schemas import JobRequirements
-from app.services.groq_client import GroqRecruiterClient
+from app.services.gemini_client import GeminiRecruiterClient
 from app.utils.file_loader import extract_text_from_file
 
 
@@ -15,7 +15,7 @@ class JobService:
 
     def __init__(self, settings: Settings):
         self.settings = settings
-        self.llm = GroqRecruiterClient(settings)
+        self.llm = GeminiRecruiterClient(settings)
 
     def load_from_file(self, path: str | Path) -> JobRequirements:
         """Read a job description file and return structured requirements."""

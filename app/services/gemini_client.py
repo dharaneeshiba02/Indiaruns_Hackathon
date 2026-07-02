@@ -1,4 +1,4 @@
-"""Groq LLM integration with deterministic local fallbacks."""
+"""Gemini LLM integration with deterministic local fallbacks."""
 
 from __future__ import annotations
 
@@ -14,25 +14,29 @@ from app.utils.text import clean_text, split_to_list
 logger = logging.getLogger(__name__)
 
 
-class GroqRecruiterClient:
-    """Small adapter around Groq chat completions."""
+class GeminiRecruiterClient:
+    """LLM adapter with Gemini as the optional remote backend."""
 
     def __init__(self, settings: Settings):
         self.settings = settings
-        self._client: Any | None = None
-        if settings.groq_api_key:
+        self._model: Any | None = None
+        if settings.gemini_api_key:
             try:
-                from groq import Groq
+                import google.generativeai as genai  # type: ignore
 
-                self._client = Groq(api_key=settings.groq_api_key)
+                genai.configure(api_key=settings.gemini_api_key)
+                self._model = genai.GenerativeModel(settings.gemini_model)
+                logger.info("Gemini model initialised: %s", settings.gemini_model)
             except ImportError:
-                logger.warning("groq package not installed; using local LLM fallback.")
+                logger.warning("google-generativeai not installed; Gemini unavailable.")
+            except Exception as exc:
+                logger.warning("Gemini init failed: %s", exc)
 
     @property
     def enabled(self) -> bool:
-        """Whether a Groq client is configured."""
+        """Whether Gemini is configured."""
 
-        return self._client is not None
+        return self._model is not None
 
     def extract_job_requirements(self, job_text: str) -> JobRequirements:
         """Extract structured requirements from a job description."""
@@ -48,18 +52,18 @@ class GroqRecruiterClient:
             f"Job Description:\n{job_text}"
         )
         try:
-            content = self._chat(prompt)
-            payload = _extract_json_object(content)
+            content = self._generate_json(prompt)
+            payload = _coerce_job_payload(_extract_json_object(content))
             payload["raw_text"] = job_text
             return JobRequirements.model_validate(payload)
         except Exception as exc:
-            logger.warning("Groq extraction failed; using heuristic fallback: %s", exc)
+            logger.warning("Gemini extraction failed; using heuristic fallback: %s", exc)
             return heuristic_job_extraction(job_text)
 
     def rerank_candidates(
         self, job: JobRequirements, scores: list[CandidateScore], summaries: dict[str, str]
     ) -> list[CandidateScore]:
-        """Rerank top candidates with Groq and attach recruiter-style notes."""
+        """Rerank top candidates with Gemini and attach recruiter-style notes."""
 
         if not self.enabled or not scores:
             return _fallback_rerank(scores)
@@ -82,26 +86,87 @@ class GroqRecruiterClient:
             f"Candidates:\n{json.dumps(candidates_payload)}"
         )
         try:
-            content = self._chat(prompt)
+            content = self._generate_json(prompt)
             payload = _extract_json_object(content)
             return _apply_llm_rankings(scores, payload.get("rankings", []))
         except Exception as exc:
-            logger.warning("Groq reranking failed; using score order: %s", exc)
+            logger.warning("Gemini reranking failed; using score order: %s", exc)
             return _fallback_rerank(scores)
 
-    def _chat(self, prompt: str) -> str:
-        response = self._client.chat.completions.create(
-            model=self.settings.groq_model,
-            messages=[
+    def chat_about_results(
+        self,
+        question: str,
+        results: list[CandidateScore],
+        job: JobRequirements | None = None,
+    ) -> str:
+        """Answer a user question about ranking results."""
+
+        if not self.enabled:
+            return "No LLM backend is available. Please configure GEMINI_API_KEY."
+
+        results_summary = json.dumps(
+            [
                 {
-                    "role": "system",
-                    "content": "You return concise, valid JSON and no markdown.",
-                },
-                {"role": "user", "content": prompt},
+                    "rank": result.rank,
+                    "name": result.candidate_name,
+                    "id": result.candidate_id,
+                    "overall": result.overall_score,
+                    "semantic": result.semantic_score,
+                    "skills": result.skill_score,
+                    "experience": result.experience_score,
+                    "education": result.education_score,
+                    "behaviour": result.behaviour_score,
+                    "activity": result.activity_score,
+                    "confidence": result.confidence_score,
+                    "reason": result.reason,
+                    "strengths": result.strengths,
+                    "weaknesses": result.weaknesses,
+                }
+                for result in results
             ],
-            temperature=0.1,
+            indent=2,
         )
-        return response.choices[0].message.content or "{}"
+        job_info = ""
+        if job:
+            job_info = (
+                "Job Requirements:\n"
+                f"Role: {job.role}\n"
+                f"Required Skills: {', '.join(job.required_skills)}\n"
+                f"Preferred Skills: {', '.join(job.preferred_skills)}\n"
+                f"Education: {', '.join(job.education)}\n"
+                f"Experience: {job.years_experience} years\n"
+            )
+
+        prompt = (
+            "You are an expert AI recruiter assistant. Answer the user's question "
+            "clearly and professionally using the ranking results. Reference scores "
+            "and candidate evidence when relevant.\n\n"
+            f"{job_info}\n"
+            f"Ranking Results:\n{results_summary}\n\n"
+            f"User Question: {question}"
+        )
+        try:
+            return self._generate_text(prompt)
+        except Exception as exc:
+            logger.warning("Gemini chat failed: %s", exc)
+            return f"Sorry, I couldn't process your question right now. Error: {exc}"
+
+    def _generate_text(self, prompt: str) -> str:
+        response = self._model.generate_content(
+            prompt,
+            generation_config={"temperature": 0.3},
+        )
+        return response.text or ""
+
+    def _generate_json(self, prompt: str) -> str:
+        response = self._model.generate_content(
+            prompt,
+            generation_config={
+                "temperature": 0.1,
+                "response_mime_type": "application/json",
+            },
+        )
+        return response.text or "{}"
 
 
 def heuristic_job_extraction(job_text: str) -> JobRequirements:
@@ -166,6 +231,33 @@ def _extract_json_object(content: str) -> dict[str, Any]:
         if not match:
             raise
         return json.loads(match.group(0))
+
+
+def _coerce_job_payload(payload: dict[str, Any]) -> dict[str, Any]:
+    list_fields = [
+        "responsibilities",
+        "required_skills",
+        "preferred_skills",
+        "education",
+        "soft_skills",
+        "tools",
+    ]
+    coerced = dict(payload)
+    for field in list_fields:
+        coerced[field] = split_to_list(coerced.get(field))
+    if coerced.get("industry") is None:
+        coerced["industry"] = ""
+    if coerced.get("role") is None:
+        coerced["role"] = ""
+    try:
+        coerced["years_experience"] = (
+            None
+            if coerced.get("years_experience") in (None, "")
+            else float(coerced.get("years_experience"))
+        )
+    except (TypeError, ValueError):
+        coerced["years_experience"] = None
+    return coerced
 
 
 def _extract_role(text: str) -> str:

@@ -1,6 +1,6 @@
 # AI-Powered Candidate Ranking System
 
-Production-quality hackathon project for ranking candidates semantically against a job description. It combines document parsing, Groq-powered extraction and reranking, Sentence Transformer embeddings, FAISS vector search, and explainable hybrid scoring.
+Production-quality hackathon project for ranking candidates semantically against a job description. It combines document parsing, Gemini-powered extraction and reranking, Sentence Transformer embeddings, FAISS vector search, and explainable hybrid scoring.
 
 ## Features
 
@@ -9,7 +9,7 @@ Production-quality hackathon project for ranking candidates semantically against
 - Semantic matching with `sentence-transformers/all-MiniLM-L6-v2`.
 - FAISS vector search with NumPy fallback.
 - Hybrid weighted ranking across semantic fit, skills, experience, education, behaviour, and platform activity.
-- Optional Groq LLM extraction and top-candidate reranking.
+- Optional Gemini LLM extraction and top-candidate reranking.
 - FastAPI endpoints plus a small demo UI.
 - CSV export with score breakdown and recruiter notes.
 - Docker and test support.
@@ -19,13 +19,13 @@ Production-quality hackathon project for ranking candidates semantically against
 ```mermaid
 flowchart LR
     A[Job Description] --> B[Text Parser]
-    B --> C[Groq JSON Extraction]
+    B --> C[Gemini JSON Extraction]
     D[Candidate CSV/JSON] --> E[Candidate Processor]
     C --> F[Embeddings]
     E --> F
     F --> G[FAISS Search]
     G --> H[Hybrid Ranking]
-    H --> I[Groq Reranking]
+    H --> I[Gemini Reranking]
     I --> J[ranked_candidates.csv]
     I --> K[FastAPI Results]
 ```
@@ -65,7 +65,7 @@ pip install -r requirements.txt
 copy .env.example .env
 ```
 
-Add `GROQ_API_KEY` to `.env` for LLM extraction and reranking. Without it, the project remains runnable with deterministic heuristics.
+Add `GEMINI_API_KEY` to `.env` for LLM extraction and reranking. Without it, the project remains runnable with deterministic heuristics.
 
 ## Run
 

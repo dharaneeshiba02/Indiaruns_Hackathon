@@ -55,7 +55,16 @@ class CandidateScorer:
             behaviour_score=round(behaviour_score * 100, 2),
             activity_score=round(activity_score * 100, 2),
             confidence_score=round(self._confidence(job, candidate, overall) * 100, 2),
-            reason=self._reason(candidate, strengths, weaknesses),
+            reason=self._reason(
+                candidate,
+                strengths,
+                weaknesses,
+                semantic_score,
+                skill_score,
+                experience_score,
+                education_score,
+                behaviour_score,
+            ),
             strengths=strengths,
             weaknesses=weaknesses,
         )
@@ -131,13 +140,32 @@ class CandidateScorer:
         return strengths[:4], weaknesses[:4]
 
     def _reason(
-        self, candidate: CandidateProfile, strengths: list[str], weaknesses: list[str]
+        self,
+        candidate: CandidateProfile,
+        strengths: list[str],
+        weaknesses: list[str],
+        semantic: float,
+        skills: float,
+        experience: float,
+        education: float,
+        behaviour: float,
     ) -> str:
+        score_summary = (
+            f"Score breakdown: semantic {semantic * 100:.1f}, skills {skills * 100:.1f}, "
+            f"experience {experience * 100:.1f}, education {education * 100:.1f}, "
+            f"behaviour {behaviour * 100:.1f}."
+        )
         if strengths and weaknesses:
             return (
-                f"{candidate.name} is strong on {', '.join(strengths)} but needs review "
-                f"for {', '.join(weaknesses)}."
+                f"{candidate.name} shows clear strength in {', '.join(strengths)}. "
+                f"Recruiter review should focus on {', '.join(weaknesses)}. {score_summary}"
             )
         if strengths:
-            return f"{candidate.name} is a strong match on {', '.join(strengths)}."
-        return f"{candidate.name} has a partial match and should be reviewed carefully."
+            return (
+                f"{candidate.name} is a strong shortlist candidate because of "
+                f"{', '.join(strengths)}. {score_summary}"
+            )
+        return (
+            f"{candidate.name} has a partial match and should be reviewed carefully against "
+            f"the job requirements. {score_summary}"
+        )

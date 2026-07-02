@@ -10,7 +10,7 @@ def test_pipeline_ranks_semantic_candidate_first(tmp_path):
         embedding_backend="hash",
         output_dir=tmp_path,
         upload_dir=tmp_path / "uploads",
-        groq_api_key=None,
+        gemini_api_key=None,
     )
     job = JobRequirements(
         role="AI Engineer",
